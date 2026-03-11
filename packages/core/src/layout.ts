@@ -23,7 +23,18 @@ export type TextMeasurer = (
 
 let globalTextMeasurer: TextMeasurer | null = null
 
-const GLYPH_WIDTH_FACTOR = 0.6
+// Average glyph width as a fraction of fontSize, indexed by font weight.
+// Heavier weights have wider glyphs. Values tuned against Inter metrics.
+function glyphWidthFactor(weight: number): number {
+  if (weight <= 200) return 0.52
+  if (weight <= 300) return 0.55
+  if (weight <= 400) return 0.58
+  if (weight <= 500) return 0.62
+  if (weight <= 600) return 0.65
+  if (weight <= 700) return 0.68
+  if (weight <= 800) return 0.71
+  return 0.74
+}
 
 export function setTextMeasurer(measurer: TextMeasurer | null): void {
   globalTextMeasurer = measurer
@@ -369,11 +380,17 @@ function configureChildAsLeaf(yogaChild: YogaNode, child: SceneNode, parent: Sce
 function estimateTextSize(node: SceneNode): { width: number; height: number } {
   const fontSize = node.fontSize || 14
   const lineHeight = fontSize * 1.2
-  const charWidth = fontSize * GLYPH_WIDTH_FACTOR
+  const weight = node.fontWeight || 400
+  let widthFactor = glyphWidthFactor(weight)
   const lines = (node.text || '').split('\n')
   const longestLine = lines.reduce((max, line) => Math.max(max, line.length), 0)
+  // Uppercase text is ~15% wider on average (caps are wider than lowercase)
+  const longestLineText = lines.reduce((a, b) => (a.length >= b.length ? a : b), '')
+  if (longestLineText === longestLineText.toUpperCase() && /[A-Z]/.test(longestLineText)) {
+    widthFactor *= 1.15
+  }
   return {
-    width: Math.ceil(longestLine * charWidth),
+    width: Math.ceil(longestLine * fontSize * widthFactor),
     height: Math.ceil(lineHeight * lines.length)
   }
 }
