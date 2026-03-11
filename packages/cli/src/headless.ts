@@ -7,7 +7,7 @@ import {
   SkiaRenderer,
   computeAllLayouts,
   loadFont,
-  collectFontKeys,
+  weightToStyle,
   renderNodesToImage,
   renderThumbnail
 } from '@open-pencil/core'
@@ -36,9 +36,23 @@ export async function loadFonts(graph: SceneGraph): Promise<void> {
 }
 
 async function loadDesignFonts(graph: SceneGraph): Promise<void> {
-  const allNodeIds = graph.getAllNodes().map((n) => n.id)
-  const fontKeys = collectFontKeys(graph, allNodeIds)
-  for (const [family, style] of fontKeys) {
+  // Collect all font family+weight combos, including the default font family
+  // (collectFontKeys filters out the default, which skips weight variants)
+  const fontKeys = new Set<string>()
+  for (const node of graph.getAllNodes()) {
+    if (node.type === 'TEXT') {
+      const family = node.fontFamily || 'Inter'
+      fontKeys.add(`${family}\0${weightToStyle(node.fontWeight || 400, node.italic)}`)
+      for (const run of node.styleRuns) {
+        const f = run.style.fontFamily ?? family
+        const w = run.style.fontWeight ?? node.fontWeight
+        const i = run.style.italic ?? node.italic
+        fontKeys.add(`${f}\0${weightToStyle(w, i)}`)
+      }
+    }
+  }
+  for (const key of fontKeys) {
+    const [family, style] = key.split('\0')
     await loadFont(family, style)
   }
 }
