@@ -370,9 +370,11 @@ function estimateTextSize(node: SceneNode): { width: number; height: number } {
   const fontSize = node.fontSize || 14
   const lineHeight = fontSize * 1.2
   const charWidth = fontSize * GLYPH_WIDTH_FACTOR
+  const lines = (node.text || '').split('\n')
+  const longestLine = lines.reduce((max, line) => Math.max(max, line.length), 0)
   return {
-    width: Math.ceil(node.text.length * charWidth),
-    height: Math.ceil(lineHeight)
+    width: Math.ceil(longestLine * charWidth),
+    height: Math.ceil(lineHeight * lines.length)
   }
 }
 
