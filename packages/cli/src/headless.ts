@@ -7,6 +7,7 @@ import {
   SkiaRenderer,
   computeAllLayouts,
   loadFont,
+  collectFontKeys,
   renderNodesToImage,
   renderThumbnail
 } from '@open-pencil/core'
@@ -31,22 +32,33 @@ export async function loadDocument(filePath: string): Promise<SceneGraph> {
 }
 
 export async function loadFonts(graph: SceneGraph): Promise<void> {
-  const families = new Set<string>()
-  for (const node of graph.getAllNodes()) {
-    if (node.fontFamily) families.add(node.fontFamily)
-  }
-  for (const family of families) {
-    await loadFont(family)
+  // no-op: fonts loaded via renderer.loadFonts() + loadDesignFonts()
+}
+
+async function loadDesignFonts(graph: SceneGraph): Promise<void> {
+  const allNodeIds = graph.getAllNodes().map((n) => n.id)
+  const fontKeys = collectFontKeys(graph, allNodeIds)
+  for (const [family, style] of fontKeys) {
+    await loadFont(family, style)
   }
 }
 
-function createRenderer(ckInstance: CanvasKit, width: number, height: number): SkiaRenderer {
+async function createRendererWithFonts(
+  ckInstance: CanvasKit,
+  graph: SceneGraph,
+  width: number,
+  height: number
+): Promise<SkiaRenderer> {
   const surface = ckInstance.MakeSurface(width, height)
   if (!surface) throw new Error('Failed to create Skia surface')
   const renderer = new SkiaRenderer(ckInstance, surface)
   renderer.viewportWidth = width
   renderer.viewportHeight = height
   renderer.dpr = 1
+  // Initialize renderer's font provider + fontsLoaded flag
+  await renderer.loadFonts()
+  // Load additional font weights/styles used in the design
+  await loadDesignFonts(graph)
   return renderer
 }
 
@@ -57,7 +69,7 @@ export async function exportNodes(
   options: { scale?: number; format?: ExportFormat; quality?: number }
 ): Promise<Uint8Array | null> {
   const ckInstance = await initCanvasKit()
-  const renderer = createRenderer(ckInstance, 1, 1)
+  const renderer = await createRendererWithFonts(ckInstance, graph, 1, 1)
   return renderNodesToImage(ckInstance, renderer, graph, pageId, nodeIds, {
     scale: options.scale ?? 1,
     format: options.format ?? 'PNG',
@@ -72,6 +84,6 @@ export async function exportThumbnail(
   height: number
 ): Promise<Uint8Array | null> {
   const ckInstance = await initCanvasKit()
-  const renderer = createRenderer(ckInstance, width, height)
+  const renderer = await createRendererWithFonts(ckInstance, graph, width, height)
   return renderThumbnail(ckInstance, renderer, graph, pageId, width, height)
 }
