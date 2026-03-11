@@ -156,6 +156,7 @@ export interface CharacterStyleOverride {
   fontFamily?: string
   letterSpacing?: number
   lineHeight?: number | null
+  fills?: Fill[]
 }
 
 export interface StyleRun {

@@ -882,9 +882,18 @@ export class SkiaRenderer {
       const runLineHeight = s.lineHeight !== undefined ? s.lineHeight : node.lineHeight
       const runFontSize = s.fontSize ?? baseFontSize
 
+      let runColor = baseColor
+      if (s.fills) {
+        const visibleFill = s.fills.find((f) => f.visible && f.type === 'SOLID')
+        if (visibleFill) {
+          const c = visibleFill.color
+          runColor = ck.Color4f(c.r, c.g, c.b, c.a * visibleFill.opacity)
+        }
+      }
+
       builder.pushStyle(
         new ck.TextStyle({
-          color: baseColor,
+          color: runColor,
           fontFamilies: fontFamilies(s.fontFamily ?? (node.fontFamily || DEFAULT_FONT_FAMILY)),
           fontSize: runFontSize,
           fontStyle: {
