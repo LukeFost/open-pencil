@@ -1,8 +1,8 @@
 import { defineCommand } from 'citty'
 
-import { FigmaAPI } from '@open-pencil/core'
+import { FigmaAPI, computeAllLayouts, setTextMeasurer, SkiaRenderer } from '@open-pencil/core'
 
-import { loadDocument } from '../headless'
+import { loadDocument, initCanvasKit } from '../headless'
 import { isAppMode, requireFile, rpc } from '../app-client'
 import { printError } from '../format'
 
@@ -80,6 +80,22 @@ export default defineCommand({
     }
 
     if (args.write || args.output) {
+      // Re-compute auto-layout after eval script modifications.
+      // Initialize text measurer for accurate textAutoResize resolution.
+      try {
+        const ckInstance = await initCanvasKit()
+        const surface = ckInstance.MakeSurface(1, 1)
+        if (surface) {
+          const renderer = new SkiaRenderer(ckInstance, surface)
+          await renderer.loadFonts()
+          setTextMeasurer((node, maxWidth) => renderer.measureTextNode(node, maxWidth))
+        }
+      } catch {
+        // Fall back to estimateTextSize() if CanvasKit unavailable
+      }
+      computeAllLayouts(graph)
+      setTextMeasurer(null)
+
       const { exportFigFile } = await import('@open-pencil/core')
       const outPath = args.output ? args.output : file
       const data = await exportFigFile(graph)
