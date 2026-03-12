@@ -13,6 +13,15 @@ import type { GUID } from './types'
 
 const fontDigestCache = new Map<string, Uint8Array>()
 
+/** Convert hex string to byte array for kiwi byte[] fields */
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16)
+  }
+  return bytes
+}
+
 async function computeFontDigest(data: ArrayBuffer): Promise<Uint8Array> {
   if (typeof crypto !== 'undefined') {
     const hash = await crypto.subtle.digest('SHA-1', data)
@@ -261,7 +270,7 @@ function fillToKiwiPaint(f: SceneNode['fills'][number]): Paint {
     paint.stops = f.gradientStops.map((s) => ({ color: normalizeColor(s.color), position: s.position }))
   }
   if (f.gradientTransform) paint.transform = f.gradientTransform
-  if (f.imageHash) paint.image = { hash: f.imageHash }
+  if (f.imageHash) paint.image = { hash: hexToBytes(f.imageHash) }
   if (f.imageScaleMode) paint.imageScaleMode = f.imageScaleMode
   if (f.imageTransform) paint.transform = f.imageTransform
   return paint
@@ -305,7 +314,13 @@ function serializeTextProps(
   nc.textAlignHorizontal = node.textAlignHorizontal
   nc.textUserLayoutVersion = 3
   if (fontDigestMap) nc.derivedTextData = buildDerivedTextData(node, fontDigestMap)
-  if (node.lineHeight != null) nc.lineHeight = { value: node.lineHeight, units: 'PIXELS' }
+  if (node.lineHeight != null) {
+    nc.lineHeight = { value: node.lineHeight, units: 'PIXELS' }
+  } else {
+    // Default to 1.2x fontSize to match Figma's AUTO behavior.
+    // Without this, Figma renders multiline text with zero leading.
+    nc.lineHeight = { value: Math.round(node.fontSize * 1.2 * 100) / 100, units: 'PIXELS' }
+  }
   if (node.letterSpacing !== 0) nc.letterSpacing = { value: node.letterSpacing, units: 'PIXELS' }
   if (node.textDecoration !== 'NONE') {
     nc.textDecoration = node.textDecoration === 'UNDERLINE' ? 'UNDERLINE' : 'STRIKETHROUGH'
