@@ -3,6 +3,7 @@ export const FIG_KIWI_VERSION = 106
 import { deflateSync, inflateSync } from 'fflate'
 
 import { weightToStyle, getLoadedFontData } from './fonts'
+import { normalizeColor } from './color'
 import { encodeVectorNetworkBlob } from './vector'
 import { stringToGuid, VARIABLE_BINDING_FIELDS } from './kiwi/kiwi-convert'
 
@@ -251,13 +252,13 @@ function exportTextData(node: SceneNode): NodeChange['textData'] {
 function fillToKiwiPaint(f: SceneNode['fills'][number]): Paint {
   const paint: Paint = {
     type: f.type,
-    color: f.color,
+    color: normalizeColor(f.color),
     opacity: f.opacity,
     visible: f.visible,
     blendMode: f.blendMode ?? 'NORMAL'
   }
   if (f.gradientStops) {
-    paint.stops = f.gradientStops.map((s) => ({ color: s.color, position: s.position }))
+    paint.stops = f.gradientStops.map((s) => ({ color: normalizeColor(s.color), position: s.position }))
   }
   if (f.gradientTransform) paint.transform = f.gradientTransform
   if (f.imageHash) paint.image = { hash: f.imageHash }
@@ -402,7 +403,7 @@ export function sceneNodeToKiwi(
   const fillPaints = node.fills.map(fillToKiwiPaint)
   const strokePaints = node.strokes.map((s) => ({
     type: 'SOLID' as const,
-    color: s.color,
+    color: normalizeColor(s.color),
     opacity: s.opacity,
     visible: s.visible,
     blendMode: 'NORMAL' as const
@@ -438,7 +439,7 @@ export function sceneNodeToKiwi(
   if (node.effects.length > 0) {
     nc.effects = node.effects.map((e) => ({
       type: e.type === 'LAYER_BLUR' ? 'FOREGROUND_BLUR' : e.type,
-      color: e.color,
+      color: normalizeColor(e.color),
       offset: e.offset,
       radius: e.radius,
       spread: e.spread,
