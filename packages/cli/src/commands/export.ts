@@ -63,8 +63,15 @@ async function exportFromFile(format: string, args: ExportArgs) {
   await loadFonts(graph)
 
   const pages = graph.getPages()
-  const page = args.page ? pages.find((p) => p.name === args.page) : pages[0]
-  if (!page) { printError(`Page "${args.page}" not found.`); process.exit(1) }
+  let page = args.page ? pages.find((p) => p.name === args.page) : undefined
+
+  // Auto-detect page when --node is given without --page
+  if (!page && args.node) {
+    page = pages.find((p) => graph.isDescendant(args.node!, p.id))
+  }
+
+  if (!page) page = pages[0]
+  if (!page) { printError(args.page ? `Page "${args.page}" not found.` : 'No pages found.'); process.exit(1) }
 
   const defaultName = basename(file, extname(file))
 
